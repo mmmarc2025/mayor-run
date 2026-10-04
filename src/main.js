@@ -2,7 +2,6 @@ import * as THREE from '../vendor/three.module.min.js';
 
 // ---------- constants ----------
 const LANES = [-2.2, 0, 2.2];
-const TRACK_X = -6.8;
 const SPAWN_Z = -125;
 const DESPAWN_Z = 14;
 const START_SPEED = 13, MAX_SPEED = 34, ACCEL = 0.22;
@@ -60,6 +59,7 @@ function textTexture(lines, w, h, bg, fg, opts = {}) {
   return t;
 }
 
+const dummy = new THREE.Object3D();
 // ---------- ground / road / track ----------
 function canvasTex(w, h, draw, rx = 1, ry = 1) {
   const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
@@ -79,43 +79,70 @@ const roadTex = canvasTex(256, 256, (g, w, h) => {
 const road = mesh(new THREE.PlaneGeometry(6.8, ROAD_LEN), new THREE.MeshLambertMaterial({ map: roadTex }), 0, 0.01, ROAD_Z, scene);
 road.rotation.x = -Math.PI / 2;
 
-const trackTex = canvasTex(128, 128, (g, w, h) => {
-  g.fillStyle = '#8c8577'; g.fillRect(0, 0, w, h);
-  for (let i = 0; i < 300; i++) { g.fillStyle = `rgba(0,0,0,${Math.random() * .15})`; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
-  g.fillStyle = '#6b4f3a'; g.fillRect(10, h * .3, w - 20, h * .36);
-  g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(10, h * .62, w - 20, h * .04);
-}, 1, ROAD_LEN / 1.2);
-const trackBed = mesh(new THREE.PlaneGeometry(3.4, ROAD_LEN), new THREE.MeshLambertMaterial({ map: trackTex }), TRACK_X, 0.02, ROAD_Z, scene);
-trackBed.rotation.x = -Math.PI / 2;
-const railGeo = new THREE.BoxGeometry(0.12, 0.16, ROAD_LEN);
-const railMat = new THREE.MeshLambertMaterial({ color: 0xc9ced6, emissive: 0x333333 });
-[-0.72, 0.72].forEach(dx => mesh(railGeo, railMat, TRACK_X + dx, 0.1, ROAD_Z, scene));
-
 const sideTex = canvasTex(64, 64, (g, w, h) => {
   g.fillStyle = '#d8c7a8'; g.fillRect(0, 0, w, h);
   g.strokeStyle = '#b9a688'; g.lineWidth = 2;
   for (let i = 0; i <= 2; i++) { g.beginPath(); g.moveTo(0, i * 32); g.lineTo(w, i * 32); g.stroke(); g.beginPath(); g.moveTo(i * 32, 0); g.lineTo(i * 32, h); g.stroke(); }
 }, 4, ROAD_LEN / 2);
-// right sidewalk & left buffer
+// sidewalks both sides
 const sideR = mesh(new THREE.PlaneGeometry(4.5, ROAD_LEN), new THREE.MeshLambertMaterial({ map: sideTex }), 5.65, 0.06, ROAD_Z, scene); sideR.rotation.x = -Math.PI / 2;
-const grassTex = canvasTex(64, 64, (g, w, h) => {
-  g.fillStyle = '#6fb04a'; g.fillRect(0, 0, w, h);
-  for (let i = 0; i < 200; i++) { g.fillStyle = `rgba(30,80,20,${Math.random() * .3})`; g.fillRect(Math.random() * w, Math.random() * h, 2, 3); }
-}, 2, ROAD_LEN / 2);
-const bufL = mesh(new THREE.PlaneGeometry(1.6, ROAD_LEN), new THREE.MeshLambertMaterial({ map: grassTex }), -4.3, 0.05, ROAD_Z, scene); bufL.rotation.x = -Math.PI / 2;
-const sideL = mesh(new THREE.PlaneGeometry(4.5, ROAD_LEN), new THREE.MeshLambertMaterial({ map: sideTex }), -10.75, 0.06, ROAD_Z, scene); sideL.rotation.x = -Math.PI / 2;
+const sideL = mesh(new THREE.PlaneGeometry(4.5, ROAD_LEN), new THREE.MeshLambertMaterial({ map: sideTex }), -5.65, 0.06, ROAD_Z, scene); sideL.rotation.x = -Math.PI / 2;
 const base = mesh(new THREE.PlaneGeometry(120, ROAD_LEN), lam(0x7fb35a), 0, -0.01, ROAD_Z, scene); base.rotation.x = -Math.PI / 2;
-// curbs
 const curbGeo = new THREE.BoxGeometry(0.25, 0.18, ROAD_LEN);
 mesh(curbGeo, lam(0xe9e4da), 3.45, 0.09, ROAD_Z, scene);
 mesh(curbGeo, lam(0xe9e4da), -3.45, 0.09, ROAD_Z, scene);
-// overhead catenary wire above track (static)
-const wireGeo = new THREE.BoxGeometry(0.04, 0.04, ROAD_LEN);
-mesh(wireGeo, lam(0x222222), TRACK_X, 5.2, ROAD_Z, scene);
-const scrollTex = [[roadTex, 8], [trackTex, 1.2], [sideTex, 2], [grassTex, 2]];
+const scrollTex = [[roadTex, 8], [sideTex, 2]];
+
+// ---------- the 聯外軌道 track: snakes between the three lanes (instanced, follows trackX(d)) ----------
+let W = 0; // total world distance scrolled (d = W - z)
+const trackSegs = [];
+function extendTrack(toD) {
+  while (!trackSegs.length || trackSegs[trackSegs.length - 1].d1 < toD) {
+    const last = trackSegs[trackSegs.length - 1];
+    if (!last) { trackSegs.push({ d0: -60, d1: 45, x0: LANES[1], x1: LANES[1], lane: 1 }); continue; }
+    if (last.x0 !== last.x1 || Math.random() < 0.12) {
+      const len = rand(20, 42);
+      trackSegs.push({ d0: last.d1, d1: last.d1 + len, x0: last.x1, x1: last.x1, lane: last.lane });
+    } else {
+      let nl = last.lane + (Math.random() < 0.5 ? -1 : 1);
+      if (nl < 0 || nl > 2) nl = 1;
+      if ((last.lane === 0 || last.lane === 2) && Math.random() < 0.3) nl = 2 - last.lane;
+      const len = Math.abs(nl - last.lane) * 12 + 6;
+      trackSegs.push({ d0: last.d1, d1: last.d1 + len, x0: last.x1, x1: LANES[nl], lane: nl });
+    }
+  }
+  while (trackSegs.length > 2 && trackSegs[1].d1 < W - 40) trackSegs.shift();
+}
+function trackX(d) {
+  for (const sg of trackSegs) if (d <= sg.d1) {
+    if (d < sg.d0) return sg.x0;
+    const k = (d - sg.d0) / (sg.d1 - sg.d0); return sg.x0 + (sg.x1 - sg.x0) * k * k * (3 - 2 * k);
+  }
+  return trackSegs[trackSegs.length - 1].x1;
+}
+const TIE_STEP = 1.2, N_TIE = 125;
+const bedIM = new THREE.InstancedMesh(new THREE.BoxGeometry(2.3, 0.06, TIE_STEP + 0.05), lam(0x9c8f7c), N_TIE);
+const tieIM = new THREE.InstancedMesh(new THREE.BoxGeometry(2.0, 0.08, 0.3), lam(0x5a4030), N_TIE);
+const railIM = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 0.14, TIE_STEP + 0.06), new THREE.MeshLambertMaterial({ color: 0xdfe4ea, emissive: 0x555555 }), N_TIE * 2);
+[bedIM, tieIM, railIM].forEach(m => { m.frustumCulled = false; scene.add(m); });
+function updateTrack() {
+  extendTrack(W + 170);
+  const k0 = Math.floor((W - 14) / TIE_STEP);
+  for (let i = 0; i < N_TIE; i++) {
+    const d = (k0 + i) * TIE_STEP, z = W - d, x = trackX(d);
+    const th = -Math.atan2(trackX(d + 0.6) - trackX(d - 0.6), 1.2);
+    const cx = Math.cos(th), sx = -Math.sin(th);
+    dummy.rotation.set(0, th, 0); dummy.scale.set(1, 1, 1);
+    dummy.position.set(x, 0.04, z); dummy.updateMatrix(); bedIM.setMatrixAt(i, dummy.matrix);
+    dummy.position.set(x, 0.09, z); dummy.updateMatrix(); tieIM.setMatrixAt(i, dummy.matrix);
+    dummy.position.set(x - 0.62 * cx, 0.16, z - 0.62 * sx); dummy.updateMatrix(); railIM.setMatrixAt(i * 2, dummy.matrix);
+    dummy.position.set(x + 0.62 * cx, 0.16, z + 0.62 * sx); dummy.updateMatrix(); railIM.setMatrixAt(i * 2 + 1, dummy.matrix);
+  }
+  dummy.rotation.set(0, 0, 0);
+  bedIM.instanceMatrix.needsUpdate = tieIM.instanceMatrix.needsUpdate = railIM.instanceMatrix.needsUpdate = true;
+}
 
 // ---------- instanced scenery ----------
-const dummy = new THREE.Object3D();
 const SCEN_SPAN = 240;
 // buildings
 const winTex = canvasTex(128, 256, (g, w, h) => {
@@ -138,7 +165,7 @@ for (let i = 0; i < N_BLD; i++) {
 }
 function randomizeBld(d) {
   d.w = rand(5, 9); d.h = rand(5, 14); d.dp = rand(5, 8);
-  d.x = d.side < 0 ? -13.5 - d.dp / 2 + rand(-0.5, 0.5) : 8.5 + d.dp / 2 + rand(-0.5, 0.5);
+  d.x = d.side < 0 ? -8.5 - d.dp / 2 + rand(-0.5, 0.5) : 8.5 + d.dp / 2 + rand(-0.5, 0.5);
   d.color = pick(BCOLORS); d.roof = pick([0x8a5a44, 0x5d6d7e, 0xa0522d, 0x6b8e5a]);
 }
 scene.add(bldIM, roofIM);
@@ -149,25 +176,16 @@ const crownIM = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.1, 0), n
 const treeData = [];
 for (let i = 0; i < N_TREE; i++) {
   const side = i % 2 ? 1 : -1;
-  treeData.push({ x: side > 0 ? 6.6 : -11.0, z: -(i >> 1) * (SCEN_SPAN / (N_TREE / 2)) + 4, s: rand(0.85, 1.25) });
+  treeData.push({ x: side > 0 ? 6.6 : -6.6, z: -(i >> 1) * (SCEN_SPAN / (N_TREE / 2)) + 4, s: rand(0.85, 1.25) });
   crownIM.setColorAt(i, new THREE.Color(pick([0x3f8f3a, 0x4fa34a, 0x2f7a3a, 0x5aaa3a])));
 }
 scene.add(trunkIM, crownIM);
-// catenary poles beside track
-const N_POLE = 14;
-const poleGeo = new THREE.BoxGeometry(0.22, 5.6, 0.22).translate(0, 2.8, 0);
-const armGeo = new THREE.BoxGeometry(2.4, 0.12, 0.12);
-const poleIM = new THREE.InstancedMesh(poleGeo, lam(0x9aa3ad), N_POLE);
-const armIM = new THREE.InstancedMesh(armGeo, lam(0x9aa3ad), N_POLE);
-const poleData = [];
-for (let i = 0; i < N_POLE; i++) poleData.push({ z: -i * (SCEN_SPAN / N_POLE) });
-scene.add(poleIM, armIM);
 // street lamps on right
 const N_LAMP = 10;
 const lampIM = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.07, 0.09, 4.2, 6).translate(0, 2.1, 0), lam(0x4a5560), N_LAMP);
 const lampHeadIM = new THREE.InstancedMesh(new THREE.BoxGeometry(0.9, 0.15, 0.3), lam(0xfff3c4, { emissive: 0x665f40 }), N_LAMP);
 const lampData = [];
-for (let i = 0; i < N_LAMP; i++) lampData.push({ z: -i * (SCEN_SPAN / N_LAMP) - 9 });
+for (let i = 0; i < N_LAMP; i++) lampData.push({ z: -i * (SCEN_SPAN / N_LAMP) - 9, s: i % 2 ? 1 : -1 });
 scene.add(lampIM, lampHeadIM);
 
 // shop signs (vertical Taiwanese style)
@@ -185,33 +203,8 @@ for (let i = 0; i < 10; i++) {
   // face the road: box thin in x, text on +z/-z faces -> rotate so faces point toward road (x axis)
   m.rotation.y = Math.PI / 2;
   m.userData = { side, z: -i * 24 - 6 };
-  m.position.set(side < 0 ? -13.1 : 8.2, 3.2 + rand(0, 1.5), m.userData.z);
+  m.position.set(side < 0 ? -8.2 : 8.2, 3.2 + rand(0, 1.5), m.userData.z);
   scene.add(m); signs.push(m);
-}
-
-// tram stations
-const STATION_NAMES = ['嘉義車站', '文化路夜市', '噴水圓環', '檜意森活村', '嘉義公園', '北門驛', '中央第一商場', '蘭潭', '射日塔', '博愛路'];
-let stationIdx = 0;
-const stations = [];
-for (let i = 0; i < 2; i++) {
-  const g = new THREE.Group();
-  mesh(new THREE.BoxGeometry(2.2, 0.35, 16), lam(0xbfc6cc), 0, 0.175, 0, g);
-  mesh(new THREE.BoxGeometry(2.2, 0.06, 16), lam(0xf5c242), 1.08 - 1.1 + 1.06, 0.36, 0, g).scale.set(0.08, 1, 1);
-  const roofM = lam(0x2f6fc4);
-  mesh(new THREE.BoxGeometry(2.8, 0.18, 13), roofM, 0.1, 3.3, 0, g);
-  [-5, 0, 5].forEach(z => mesh(new THREE.BoxGeometry(0.15, 3, 0.15), lam(0xdddddd), -0.7, 1.8, z, g));
-  mesh(new THREE.BoxGeometry(0.06, 1.6, 10), new THREE.MeshLambertMaterial({ color: 0xbfe3ff, transparent: true, opacity: 0.45 }), -0.95, 1.2, 0, g);
-  const tex = textTexture(['嘉義聯外軌道', STATION_NAMES[0]], 512, 160, '#2f6fc4', '#ffffff', { size: 0.7, border: '#f39a1e' });
-  const sign = mesh(new THREE.BoxGeometry(0.12, 1.0, 3.2), [new THREE.MeshLambertMaterial({ map: tex }), new THREE.MeshLambertMaterial({ map: tex }), roofM, roofM, roofM, roofM], 0.1, 3.95, 0, g);
-  tex.center.set(0.5, 0.5);
-  g.userData = { z: -60 - i * 150, tex };
-  g.position.set(TRACK_X - 2.75, 0, g.userData.z);
-  scene.add(g); stations.push(g);
-  nameStation(g);
-}
-function nameStation(g) {
-  const n = STATION_NAMES[stationIdx++ % STATION_NAMES.length];
-  g.userData.tex.userData.draw(['嘉義聯外軌道', n + '站']);
 }
 
 function updateScenery(dz) {
@@ -229,20 +222,13 @@ function updateScenery(dz) {
   }
   trunkIM.instanceMatrix.needsUpdate = crownIM.instanceMatrix.needsUpdate = true;
   dummy.scale.set(1, 1, 1);
-  for (let i = 0; i < N_POLE; i++) {
-    const d = poleData[i]; d.z += dz; if (d.z > DESPAWN_Z) d.z -= SCEN_SPAN;
-    dummy.position.set(TRACK_X + 1.9, 0, d.z); dummy.updateMatrix(); poleIM.setMatrixAt(i, dummy.matrix);
-    dummy.position.set(TRACK_X + 0.8, 5.3, d.z); dummy.updateMatrix(); armIM.setMatrixAt(i, dummy.matrix);
-  }
-  poleIM.instanceMatrix.needsUpdate = armIM.instanceMatrix.needsUpdate = true;
   for (let i = 0; i < N_LAMP; i++) {
     const d = lampData[i]; d.z += dz; if (d.z > DESPAWN_Z) d.z -= SCEN_SPAN;
-    dummy.position.set(3.9, 0, d.z); dummy.updateMatrix(); lampIM.setMatrixAt(i, dummy.matrix);
-    dummy.position.set(3.55, 4.2, d.z); dummy.updateMatrix(); lampHeadIM.setMatrixAt(i, dummy.matrix);
+    dummy.position.set(3.9 * d.s, 0, d.z); dummy.updateMatrix(); lampIM.setMatrixAt(i, dummy.matrix);
+    dummy.position.set(3.55 * d.s, 4.2, d.z); dummy.updateMatrix(); lampHeadIM.setMatrixAt(i, dummy.matrix);
   }
   lampIM.instanceMatrix.needsUpdate = lampHeadIM.instanceMatrix.needsUpdate = true;
   for (const s of signs) { s.position.z += dz; if (s.position.z > DESPAWN_Z) s.position.z -= SCEN_SPAN; }
-  for (const st of stations) { st.position.z += dz; if (st.position.z > DESPAWN_Z + 10) { st.position.z -= 300; nameStation(st); } }
 }
 
 // ---------- the mayor (chibi) ----------
@@ -316,30 +302,79 @@ function makeMayor() {
 const mayor = makeMayor();
 scene.add(mayor.root, mayor.shadow);
 
-// ---------- tram ----------
-const tramBodyGeo = new THREE.BoxGeometry(2.3, 2.7, 12);
-function makeTram() {
+// ---------- road vehicles ----------
+const glassM = lam(0x1d2a38, { emissive: 0x0a1018 }), tireM = lam(0x1a1a1a), hlM = lam(0xffffcc, { emissive: 0xfff3a0 }), sigM = lam(0xffa000, { emissive: 0xff8800 });
+const wheelGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.26, 12).rotateZ(Math.PI / 2);
+const CAR_COLORS = [0xd63031, 0xf5f6fa, 0x2d3436, 0x0984e3, 0xb2bec3, 0x6c5ce7, 0x00b894, 0xe17055, 0xfdcb6e];
+function addWheels(g, xs, zs, r = 1) { for (const x of xs) for (const z of zs) mesh(wheelGeo, tireM, x, 0.34 * r, z, g).scale.setScalar(r); }
+function addSignals(g, hx, zf, y = 0.75) {
+  g.userData.signals = [-1, 1].map(s => { const m = mesh(new THREE.BoxGeometry(0.16, 0.14, 0.14), sigM, s * hx, y, zf, g); m.visible = false; return m; });
+}
+function faceTex(tex, side) { const m = new THREE.MeshLambertMaterial({ map: tex }); return [side, side, side, side, m, m]; }
+function makeCar(taxi) {
   const g = new THREE.Group();
-  const white = lam(0xf7f7f2), green = lam(0x1e8a5a), orange = lam(0xf39a1e), glass = lam(0x1d2a38, { emissive: 0x0a1018 }), dark = lam(0x333a40);
-  mesh(tramBodyGeo, white, 0, 1.65, 0, g);
-  mesh(new THREE.BoxGeometry(2.34, 0.35, 12.02), green, 0, 0.45, 0, g);
-  mesh(new THREE.BoxGeometry(2.34, 0.12, 12.02), orange, 0, 0.7, 0, g);
-  mesh(new THREE.BoxGeometry(2.36, 0.95, 10.5), glass, 0, 1.95, 0.2, g);
-  // front nose (toward +z, facing player)
-  const nose = mesh(new THREE.BoxGeometry(2.3, 2.2, 1.2), white, 0, 1.4, 6.3, g);
-  const ws = mesh(new THREE.BoxGeometry(2.0, 1.2, 0.1), glass, 0, 2.05, 6.88, g); ws.rotation.x = -0.18;
-  mesh(new THREE.BoxGeometry(2.32, 0.4, 1.22), green, 0, 0.45, 6.3, g);
-  mesh(new THREE.BoxGeometry(2.32, 0.12, 1.22), orange, 0, 0.7, 6.3, g);
-  const hlM = lam(0xffffcc, { emissive: 0xfff3a0 });
-  [-0.75, 0.75].forEach(x => mesh(new THREE.BoxGeometry(0.35, 0.18, 0.06), hlM, x, 0.95, 6.92, g));
-  const dest = textTexture(['嘉義聯外軌道'], 384, 64, '#111', '#ffb020', { size: 0.8 });
-  mesh(new THREE.PlaneGeometry(2.1, 0.35), new THREE.MeshBasicMaterial({ map: dest }), 0, 2.8, 6.91, g);
-  mesh(new THREE.BoxGeometry(1.2, 0.2, 3), dark, 0, 3.08, 0, g);
-  const panto = mesh(new THREE.BoxGeometry(0.06, 1.2, 0.06), dark, 0, 3.7, 0, g); panto.rotation.x = 0.6;
-  mesh(new THREE.BoxGeometry(1.4, 0.06, 0.1), dark, 0, 4.2, -0.35, g);
-  // wheels skirts
-  mesh(new THREE.BoxGeometry(2.0, 0.3, 11), dark, 0, 0.15, 0, g);
-  g.userData = { active: false, kind: 'tram' };
+  const body = taxi ? lam(0xffd31a) : new THREE.MeshLambertMaterial({ color: pick(CAR_COLORS) });
+  mesh(new THREE.BoxGeometry(1.8, 0.62, 4.2), body, 0, 0.64, 0, g);
+  mesh(new THREE.BoxGeometry(1.62, 0.6, 2.2), glassM, 0, 1.25, -0.2, g);
+  mesh(new THREE.BoxGeometry(1.66, 0.09, 2.05), body, 0, 1.58, -0.22, g);
+  [-0.6, 0.6].forEach(x => mesh(new THREE.BoxGeometry(0.42, 0.16, 0.06), hlM, x, 0.74, 2.11, g));
+  mesh(new THREE.BoxGeometry(0.6, 0.16, 0.04), lam(0xffffff), 0, 0.46, 2.12, g);
+  mesh(new THREE.BoxGeometry(1.82, 0.12, 0.12), lam(0x333333), 0, 0.36, 2.1, g);
+  addWheels(g, [-0.85, 0.85], [-1.35, 1.35]);
+  if (taxi) {
+    const t = textTexture(['計程車'], 128, 48, '#ffffff', '#c0392b', { size: 0.8 });
+    mesh(new THREE.BoxGeometry(0.85, 0.3, 0.4), faceTex(t, lam(0xffffff)), 0, 1.78, -0.3, g);
+  }
+  addSignals(g, 0.92, 2.0);
+  if (!taxi) g.userData.bodyMat = body;
+  return g;
+}
+function makeScooter() {
+  const g = new THREE.Group();
+  const c = new THREE.MeshLambertMaterial({ color: pick(CAR_COLORS) });
+  mesh(new THREE.BoxGeometry(0.42, 0.42, 1.5), c, 0, 0.5, 0, g);
+  mesh(new THREE.BoxGeometry(0.38, 0.16, 0.7), lam(0x222222), 0, 0.78, -0.25, g);
+  mesh(new THREE.BoxGeometry(0.36, 0.75, 0.14), c, 0, 0.85, 0.66, g);
+  mesh(new THREE.BoxGeometry(0.75, 0.06, 0.06), lam(0x333333), 0, 1.22, 0.55, g);
+  mesh(new THREE.BoxGeometry(0.2, 0.14, 0.06), hlM, 0, 1.08, 0.74, g);
+  mesh(wheelGeo, tireM, 0, 0.25, 0.6, g).scale.set(0.6, 0.72, 0.72);
+  mesh(wheelGeo, tireM, 0, 0.25, -0.55, g).scale.set(0.6, 0.72, 0.72);
+  const shirt = new THREE.MeshLambertMaterial({ color: pick([0x74b9ff, 0xfab1a0, 0x55efc4, 0xffeaa7, 0xa29bfe, 0xffffff]) });
+  mesh(new THREE.BoxGeometry(0.46, 0.6, 0.3), shirt, 0, 1.2, -0.12, g).rotation.x = 0.2;
+  [-0.2, 0.2].forEach(x => { const a = mesh(new THREE.BoxGeometry(0.11, 0.11, 0.55), shirt, x, 1.3, 0.22, g); a.rotation.x = 0.35; });
+  [-0.13, 0.13].forEach(x => mesh(new THREE.BoxGeometry(0.15, 0.15, 0.55), lam(0x34495e), x, 0.9, 0.1, g));
+  const helm = new THREE.MeshLambertMaterial({ color: pick([0xe84393, 0xffffff, 0x0984e3, 0xd63031, 0xfdcb6e, 0x2d3436]) });
+  mesh(new THREE.SphereGeometry(0.21, 12, 10), helm, 0, 1.7, -0.08, g);
+  mesh(new THREE.BoxGeometry(0.3, 0.12, 0.05), glassM, 0, 1.68, 0.12, g);
+  addSignals(g, 0.3, 0.7, 1.15);
+  return g;
+}
+function makeBus() {
+  const g = new THREE.Group();
+  const white = lam(0xf7f7f2), blue = lam(0x1e5fb4);
+  mesh(new THREE.BoxGeometry(2.4, 2.8, 11), white, 0, 1.75, 0, g);
+  mesh(new THREE.BoxGeometry(2.42, 0.55, 11.02), blue, 0, 0.75, 0, g);
+  mesh(new THREE.BoxGeometry(2.44, 0.9, 9.6), glassM, 0, 2.2, -0.4, g);
+  mesh(new THREE.BoxGeometry(2.2, 1.35, 0.06), glassM, 0, 2.0, 5.51, g);
+  const dest = textTexture(['嘉義市公車'], 320, 56, '#111', '#ffb020', { size: 0.8 });
+  mesh(new THREE.PlaneGeometry(2.0, 0.35), new THREE.MeshBasicMaterial({ map: dest }), 0, 2.93, 5.52, g);
+  [-0.85, 0.85].forEach(x => mesh(new THREE.BoxGeometry(0.4, 0.2, 0.06), hlM, x, 0.95, 5.52, g));
+  addWheels(g, [-1.1, 1.1], [-3.6, 3.6], 1.4);
+  addSignals(g, 1.22, 5.4, 1.1);
+  return g;
+}
+function makeTruck() {
+  const g = new THREE.Group();
+  const cab = new THREE.MeshLambertMaterial({ color: pick([0x2e86de, 0x10ac84, 0xee5253, 0xf5f6fa]) });
+  g.userData.bodyMat = cab;
+  mesh(new THREE.BoxGeometry(2.2, 2.0, 1.9), cab, 0, 1.35, 3.25, g);
+  mesh(new THREE.BoxGeometry(2.0, 0.8, 0.06), glassM, 0, 1.8, 4.21, g);
+  [-0.8, 0.8].forEach(x => mesh(new THREE.BoxGeometry(0.36, 0.2, 0.06), hlM, x, 0.75, 4.21, g));
+  const cargoTex = textTexture(['嘉義冷凍物流'], 384, 128, '#ffffff', '#1e5fb4', { size: 0.5 });
+  mesh(new THREE.BoxGeometry(2.3, 2.6, 5.6), faceTex(cargoTex, lam(0xffffff)), 0, 1.9, -0.6, g);
+  mesh(new THREE.BoxGeometry(1.8, 0.3, 7.5), lam(0x333333), 0, 0.45, 0.4, g);
+  addWheels(g, [-1.0, 1.0], [3.1, -1.8, -2.9], 1.25);
+  addSignals(g, 1.12, 4.1, 0.9);
   return g;
 }
 
@@ -379,7 +414,11 @@ const OB_DEF = {
   cone: { make: makeCone, hx: 0.36, hz: 0.36, y0: 0, y1: 0.85, n: 10 },
   barrier: { make: makeBarrier, hx: 0.95, hz: 0.2, y0: 0, y1: 1.0, n: 8 },
   overhead: { make: makeOverhead, hx: 1.05, hz: 0.15, y0: 1.2, y1: 3, n: 8 },
-  tram: { make: makeTram, hx: 1.15, hz: 6.9, y0: 0, y1: 3.2, n: 5 },
+  car: { make: () => makeCar(false), hx: 0.9, hz: 2.15, y0: 0, y1: 3.5, n: 8, veh: true },
+  taxi: { make: () => makeCar(true), hx: 0.9, hz: 2.15, y0: 0, y1: 3.5, n: 4, veh: true },
+  scooter: { make: makeScooter, hx: 0.38, hz: 0.8, y0: 0, y1: 3.5, n: 6, veh: true },
+  bus: { make: makeBus, hx: 1.2, hz: 5.5, y0: 0, y1: 3.5, n: 3, veh: true },
+  truck: { make: makeTruck, hx: 1.15, hz: 3.9, y0: 0, y1: 3.5, n: 3, veh: true },
 };
 const pools = {};
 const active = [];
@@ -391,9 +430,11 @@ function spawnOb(kind, lane, z, extra = {}) {
   const o = pools[kind].find(p => !p.visible);
   if (!o) return null;
   o.visible = true;
-  o.position.set(lane == null ? extra.x : LANES[lane], 0, z);
+  o.position.set(LANES[extra.fromLane ?? lane], 0, z);
   o.rotation.set(0, 0, 0);
-  Object.assign(o.userData, { lane, vz: 0, switchFrom: null, ambient: false, warned: false }, extra);
+  Object.assign(o.userData, { lane, vz: 0, fromLane: null, targetLane: lane, cut: false }, extra);
+  if (o.userData.bodyMat) o.userData.bodyMat.color.setHex(pick(CAR_COLORS));
+  if (o.userData.signals) o.userData.signals.forEach(m => m.visible = false);
   active.push(o);
   return o;
 }
@@ -443,7 +484,7 @@ const sfx = {
   slide() { beep(500, 0.2, 'sawtooth', 0.04, -350); },
   lane() { beep(660, 0.05, 'sine', 0.05); },
   crash() { beep(200, 0.5, 'sawtooth', 0.15, -160); beep(90, 0.6, 'square', 0.1, -40); },
-  bell() { beep(1568, 0.25, 'sine', 0.06); setTimeout(() => beep(1568, 0.25, 'sine', 0.06), 280); },
+  horn() { beep(415, 0.18, 'square', 0.06); beep(523, 0.18, 'square', 0.05); setTimeout(() => { beep(415, 0.3, 'square', 0.06); beep(523, 0.3, 'square', 0.05); }, 220); },
 };
 
 // ---------- UI ----------
@@ -487,7 +528,7 @@ function startGame() {
   ui.start.classList.add('hidden'); ui.over.classList.add('hidden'); ui.pause.classList.add('hidden'); ui.foot.classList.add('hidden');
   ui.hud.classList.remove('hidden');
   // pre-fill: some coins straight ahead
-  for (let i = 0; i < 8; i++) spawnCoin(LANES[1], 1.0, -18 - i * 2.4);
+  for (let i = 0; i < 8; i++) spawnCoin(trackX(W + 18 + i * 2.4), 1.0, -18 - i * 2.4);
   S.spawnAcc = 0; S.nextGap = 30; S.spawnZ = -60;
   // seed a couple of rows inside visible range
   generateRow(-60); generateRow(-90);
@@ -552,75 +593,65 @@ function swipe(dx, dy) { if (Math.abs(dx) > Math.abs(dy)) act(dx > 0 ? 'right' :
 document.addEventListener('visibilitychange', () => { if (document.hidden && S.mode === 'play') togglePause(); });
 
 // ---------- spawning ----------
-function tramLanesBusy() {
+const VEH = ['car', 'car', 'car', 'taxi', 'scooter', 'scooter', 'bus', 'truck'];
+function vehBusy(zA, zB) {
   const set = new Set();
-  for (const o of active) if (o.userData.kind === 'tram' && !o.userData.ambient && o.position.z < 4) set.add(o.userData.targetLane ?? o.userData.lane);
+  for (const o of active) {
+    const d = o.userData, def = OB_DEF[d.kind]; if (!def.veh) continue;
+    if (o.position.z + def.hz > zA && o.position.z - def.hz < zB) { set.add(d.targetLane); if (d.fromLane != null) set.add(d.fromLane); }
+  }
   return set;
 }
-function laneHasObAt(lane, z0, z1) { return active.some(o => o.userData.lane === lane && o.position.z > z0 && o.position.z < z1); }
+function staticInLane(lane, z0, z1) { return active.some(o => !OB_DEF[o.userData.kind].veh && o.userData.lane === lane && o.position.z > z0 && o.position.z < z1); }
+const vehVz = () => 4 + Math.min(1, S.dist / 1500) * 4;
 function generateRow(z) {
-  const busy = tramLanesBusy();
-  const free = [0, 1, 2].filter(l => !busy.has(l));
-  const r = Math.random();
   const lvl = Math.min(1, S.dist / 1500);
-  let used = new Set();
-  const tramChance = 0.18 + lvl * 0.17;
-  if (r < tramChance && free.length >= 2) {
-    // a tram comes at her: either head-on in a lane, or switching in from the rail track
-    const switching = Math.random() < 0.45;
-    let lane = switching ? (Math.random() < 0.7 ? 0 : 1) : pick(free);
-    if (!free.includes(lane)) lane = pick(free);
-    if (free.filter(l => l !== lane).length >= 1 && !laneHasObAt(lane, -70, 0)) {
-      const vz = rand(3, 6) + lvl * 3;
-      const tz = z - 10;
-      if (switching) spawnOb('tram', lane, tz, { x: TRACK_X, switchFrom: TRACK_X, targetLane: lane, vz });
-      else spawnOb('tram', lane, tz, { vz, targetLane: lane });
-      if (switching) { const o = active[active.length - 1]; o.position.x = TRACK_X; }
-      used.add(lane);
-      // something in another lane sometimes
-      const others = free.filter(l => l !== lane);
-      if (others.length > 1 && Math.random() < 0.5) { const l2 = pick(others); spawnOb(pick(['cone', 'barrier', 'overhead']), l2, z); used.add(l2); }
+  const busy = vehBusy(z - 16, z + 28);
+  const used = new Set();
+  const vz = vehVz();
+  const nVeh = Math.random() < 0.6 + lvl * 0.25 ? (Math.random() < 0.2 + lvl * 0.35 ? 2 : 1) : 0;
+  for (let n = 0; n < nVeh; n++) {
+    const free = [0, 1, 2].filter(l => !busy.has(l) && !used.has(l));
+    if (free.length < 2) break; // always keep one lane without vehicles
+    const kind = pick(VEH), def = OB_DEF[kind];
+    let lane = pick(free), from = lane;
+    if (free.length === 3 && Math.random() < 0.3 + lvl * 0.2) { // cut-in from neighbouring lane
+      const nb = [lane - 1, lane + 1].filter(l => l >= 0 && l <= 2);
+      from = pick(nb);
     }
-  } else {
-    const n = Math.random() < 0.35 + lvl * 0.35 ? 2 : 1;
-    const lanes = [0, 1, 2].sort(() => Math.random() - 0.5).slice(0, n);
-    // never block all remaining tram-free lanes with obstacles of mixed types that are hard? (all passable by jump/slide, ok)
-    const allSame = Math.random() < 0.15 + lvl * 0.1;
-    const t0 = pick(['cone', 'barrier', 'overhead', 'barrier']);
-    for (const l of lanes) {
-      if (busy.has(l)) continue;
-      spawnOb(allSame ? t0 : pick(['cone', 'barrier', 'overhead', 'barrier', 'cone']), l, z); used.add(l);
-    }
-    if (Math.random() < 0.12 + lvl * 0.1) { // full-width jump/slide row
-      const t = pick(['barrier', 'overhead']);
-      for (const l of [0, 1, 2]) if (!used.has(l) && !busy.has(l)) { spawnOb(t, l, z); used.add(l); }
-    }
+    if (staticInLane(lane, z - 80, z + 1) || staticInLane(from, z - 80, z + 1)) continue;
+    if (spawnOb(kind, lane, z - def.hz, { vz, fromLane: from === lane ? null : from, targetLane: lane, cut: from !== lane })) { used.add(lane); used.add(from); }
   }
-  // coins
-  const cl = [0, 1, 2].filter(l => !busy.has(l) && !(active.some(o => o.userData.kind === 'tram' && o.userData.targetLane === l && o.position.z < 4)));
-  if (cl.length && Math.random() < 0.85) {
-    const l = pick(cl);
-    const obHere = active.find(o => o.userData.lane === l && Math.abs(o.position.z - z) < 1 && o.userData.kind !== 'tram');
-    const n = 6 + ((Math.random() * 4) | 0);
+  const nStat = nVeh === 0 ? (Math.random() < 0.4 + lvl * 0.3 ? 2 : 1) : (Math.random() < 0.5 ? 1 : 0);
+  const sl = [0, 1, 2].filter(l => !used.has(l)).sort(() => Math.random() - 0.5);
+  for (let n = 0; n < nStat && n < sl.length; n++) spawnOb(pick(['cone', 'barrier', 'overhead', 'barrier', 'cone']), sl[n], z);
+  if (nVeh === 0 && Math.random() < 0.12 + lvl * 0.1) {
+    const t = pick(['barrier', 'overhead']);
+    for (const l of [0, 1, 2]) if (!active.some(o => o.userData.lane === l && Math.abs(o.position.z - z) < 1)) spawnOb(t, l, z);
+  }
+  // coins follow the snaking track
+  if (Math.random() < 0.9) {
+    const n = 6 + ((Math.random() * 5) | 0);
     const bowlAt = Math.random() < 0.18 ? ((Math.random() * n) | 0) : -1;
     for (let i = 0; i < n; i++) {
-      const cz = z + 8 - i * 2.4;
+      const cz = z + 9 - i * 2.4, x = trackX(W - cz);
       let y = 1.0;
-      if (obHere) {
-        const k = obHere.userData.kind;
-        if (k === 'barrier' || k === 'cone') { const d = Math.abs(cz - z); y = d < 4 ? 1.0 + 1.1 * Math.cos(d / 4 * Math.PI / 2) : 1.0; }
-        else if (k === 'overhead') { y = Math.abs(cz - z) < 2 ? 0.55 : 0.7; }
+      for (const o of active) {
+        const k = o.userData.kind; if (OB_DEF[k].veh || Math.abs(o.position.x - x) > 1.1) continue;
+        const dd = Math.abs(cz - o.position.z);
+        if ((k === 'barrier' || k === 'cone') && dd < 4) y = Math.max(y, 1.0 + 1.1 * Math.cos(dd / 4 * Math.PI / 2));
+        else if (k === 'overhead' && dd < 2.5) y = 0.55;
       }
-      if (i === bowlAt) spawnBowl(LANES[l], y - 0.2, cz); else spawnCoin(LANES[l], y, cz);
+      if (i === bowlAt) spawnBowl(x, y - 0.2, cz); else spawnCoin(x, y, cz);
     }
   }
 }
-let ambientT = 4;
-function spawnAmbientTram() {
-  // on the rail track, either oncoming (fast) or same direction (slower than her -> she overtakes)
-  if (active.some(o => o.userData.kind === 'tram' && Math.abs(o.position.x - TRACK_X) < 0.5 && o.position.z < 0)) return;
-  const o = spawnOb('tram', null, SPAWN_Z - 20, { x: TRACK_X, ambient: true, vz: rand(6, 12) });
-  if (o) sfx.bell();
+let ambientT = 1;
+function spawnAmbientCar() { // start-screen traffic on the side lanes
+  const lane = Math.random() < 0.5 ? 0 : 2;
+  if (vehBusy(SPAWN_Z - 10, SPAWN_Z + 20).has(lane)) return;
+  const kind = pick(VEH);
+  spawnOb(kind, lane, SPAWN_Z, { vz: rand(5, 9), targetLane: lane });
 }
 
 // ---------- update ----------
@@ -638,7 +669,9 @@ function update(dt) {
 
   // texture scroll
   for (const [tx, len] of scrollTex) tx.offset.y = (tx.offset.y + dz / len) % 1;
+  W += dz;
   updateScenery(dz);
+  updateTrack();
 
   // player physics
   if (playing) {
@@ -692,27 +725,27 @@ function update(dt) {
   for (let i = active.length - 1; i >= 0; i--) {
     const o = active[i]; const d = o.userData;
     o.position.z += dz + d.vz * dt * (S.mode === 'play' || homeMode ? 1 : 0);
-    if (d.kind === 'tram' && d.switchFrom != null) {
-      // switch from track into lane between z=-75 and z=-30
-      const tx = LANES[d.targetLane];
+    if (d.cut) {
+      const tx = LANES[d.targetLane], fx = LANES[d.fromLane];
       const k = THREE.MathUtils.clamp((o.position.z - (-85)) / 50, 0, 1);
       const e = k * k * (3 - 2 * k);
-      const nx = d.switchFrom + (tx - d.switchFrom) * e;
-      const dx = nx - o.position.x;
+      const nx = fx + (tx - fx) * e, dx = nx - o.position.x, mv = dz + d.vz * dt;
       o.position.x = nx;
-      o.rotation.y = (dz + d.vz * dt) > 0 ? Math.atan2(dx, (dz + d.vz * dt)) * 0.9 : 0;
-      if (k < 1 && o.position.z > SPAWN_Z + 5) warn = true;
-      d.lane = Math.abs(nx - tx) < 1 ? d.targetLane : null;
+      o.rotation.y = mv > 0 ? Math.atan2(dx, mv) : 0;
+      const on = k < 1 && Math.sin(t * 14) > 0;
+      d.signals[tx > fx ? 1 : 0].visible = on;
+      if (k < 1 && o.position.z > SPAWN_Z && o.position.z < -15) warn = true;
     }
     if (d.blink) d.blink.visible = Math.sin(t * 10) > 0;
-    if (o.position.z > DESPAWN_Z + (d.kind === 'tram' ? 8 : 0)) { o.visible = false; active.splice(i, 1); continue; }
-    if (!playing || d.ambient) continue;
+    if (o.position.z > DESPAWN_Z + OB_DEF[d.kind].hz) { o.visible = false; active.splice(i, 1); continue; }
     const def = OB_DEF[d.kind];
+    if (def.veh) for (const c of coins) if (c.on && Math.abs(c.x - o.position.x) < def.hx && Math.abs(c.z - o.position.z) < def.hz) c.on = false;
+    if (!playing) continue;
     if (Math.abs(o.position.x - S.x) < def.hx + 0.32 && Math.abs(o.position.z) < def.hz + 0.3) {
       if (py1 > def.y0 + 0.02 && py0 < def.y1) { gameOver(); break; }
     }
   }
-  if (warn !== warnOn && playing) { warnOn = warn; ui.warn.classList.toggle('hidden', !warn); if (warn) sfx.bell(); }
+  if (warn !== warnOn && playing) { warnOn = warn; ui.warn.classList.toggle('hidden', !warn); if (warn) sfx.horn(); }
   if (!playing && warnOn) { warnOn = false; ui.warn.classList.add('hidden'); }
 
   // spawn
@@ -720,9 +753,8 @@ function update(dt) {
     S.spawnAcc += dz;
     const gap = Math.max(15, 30 - S.speed * 0.45) + rand(-2, 4) * 0;
     if (S.spawnAcc >= S.nextGap) { S.spawnAcc = 0; S.nextGap = gap + rand(0, 6); generateRow(SPAWN_Z); }
-    ambientT -= dt; if (ambientT <= 0) { ambientT = rand(5, 10); spawnAmbientTram(); }
   } else if (homeMode) {
-    ambientT -= dt; if (ambientT <= 0) { ambientT = rand(5, 8); spawnAmbientTram(); }
+    ambientT -= dt; if (ambientT <= 0) { ambientT = rand(1.5, 3.5); spawnAmbientCar(); }
   }
 
   // coins
@@ -758,10 +790,10 @@ function update(dt) {
     camera.position.lerp(tmpV, Math.min(1, dt * 3));
     camera.lookAt(-0.4, 1.25, 0);
   } else {
-    const cx = S.x * (portrait ? 0.75 : 0.55) + (portrait ? -0.5 : -0.8);
+    const cx = S.x * (portrait ? 0.75 : 0.55);
     tmpV.set(cx, portrait ? 5.0 : 4.4, portrait ? 8.2 : 7.4);
     camera.position.lerp(tmpV, Math.min(1, dt * (S.mode === 'play' ? 6 : 2)));
-    camera.lookAt(cx * 0.9 - 0.3, 1.1, -10);
+    camera.lookAt(cx * 0.9, 1.1, -10);
   }
   if (playing) updateHUD();
 }
