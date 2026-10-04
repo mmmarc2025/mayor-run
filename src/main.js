@@ -243,7 +243,7 @@ function makeMayor() {
   const S = 1.0;
   // legs
   const legs = [];
-  [-0.13, 0.13].forEach(x => {
+  [-0.15, 0.15].forEach(x => {
     const hip = new THREE.Group(); hip.position.set(x, 0.55, 0); pose.add(hip);
     mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.46, 8), pantsM, 0, -0.25, 0, hip);
     mesh(new THREE.BoxGeometry(0.15, 0.09, 0.24), shoeM, 0, -0.5, 0.04, hip);
@@ -251,18 +251,19 @@ function makeMayor() {
   });
   // torso (blue jacket, qipao-style)
   const torso = new THREE.Group(); torso.position.y = 0.55; pose.add(torso);
-  mesh(new THREE.CylinderGeometry(0.23, 0.31, 0.58, 14), jacket, 0, 0.29, 0, torso);
-  mesh(new THREE.CylinderGeometry(0.315, 0.33, 0.08, 14), jacketD, 0, 0.02, 0, torso);
+  mesh(new THREE.CylinderGeometry(0.27, 0.36, 0.58, 16), jacket, 0, 0.29, 0, torso);
+  mesh(new THREE.SphereGeometry(0.36, 16, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), jacket, 0, 0.04, 0, torso).scale.set(1, 0.25, 1);
+  mesh(new THREE.CylinderGeometry(0.365, 0.375, 0.08, 16), jacketD, 0, 0.02, 0, torso);
   // mandarin collar
   mesh(new THREE.CylinderGeometry(0.12, 0.135, 0.1, 14), trim, 0, 0.62, 0, torso);
   // diagonal placket trim (qipao-style) and frog buttons
-  const plk = mesh(new THREE.BoxGeometry(0.035, 0.32, 0.02), trim, 0.08, 0.45, 0.255, torso); plk.rotation.z = -0.9; plk.rotation.x = -0.12;
-  const plk2 = mesh(new THREE.BoxGeometry(0.03, 0.4, 0.02), trim, 0.17, 0.22, 0.29, torso); plk2.rotation.x = -0.14;
-  [0.42, 0.3, 0.18].forEach((y, i) => mesh(new THREE.BoxGeometry(0.1, 0.03, 0.03), trim, 0.17, y, 0.29 - i * 0.008, torso));
+  const plk = mesh(new THREE.BoxGeometry(0.035, 0.32, 0.02), trim, 0.09, 0.45, 0.3, torso); plk.rotation.z = -0.9; plk.rotation.x = -0.12;
+  const plk2 = mesh(new THREE.BoxGeometry(0.03, 0.4, 0.02), trim, 0.19, 0.22, 0.335, torso); plk2.rotation.x = -0.14;
+  [0.42, 0.3, 0.18].forEach((y, i) => mesh(new THREE.BoxGeometry(0.1, 0.03, 0.03), trim, 0.19, y, 0.335 - i * 0.01, torso));
   // arms
   const arms = [];
   [-1, 1].forEach(s => {
-    const sh = new THREE.Group(); sh.position.set(s * 0.29, 0.52, 0); torso.add(sh);
+    const sh = new THREE.Group(); sh.position.set(s * 0.33, 0.52, 0); torso.add(sh);
     const sl = mesh(new THREE.CylinderGeometry(0.075, 0.095, 0.38, 8), jacket, 0, -0.18, 0, sh);
     mesh(new THREE.CylinderGeometry(0.098, 0.098, 0.05, 8), trim, 0, -0.37, 0, sh);
     mesh(new THREE.SphereGeometry(0.07, 8, 6), skin, 0, -0.43, 0, sh);
@@ -273,7 +274,7 @@ function makeMayor() {
   const head = new THREE.Group(); head.position.y = 1.2; torso.add(head); head.position.y = 0.66;
   mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.1, 8), skin, 0, 0.03, 0, head);
   const HC = 0.38; // head center y
-  const face = mesh(new THREE.SphereGeometry(0.36, 20, 16), skin, 0, HC, 0, head); face.scale.set(1.0, 0.95, 0.95);
+  const face = mesh(new THREE.SphereGeometry(0.36, 20, 16), skin, 0, HC, 0, head); face.scale.set(1.06, 0.95, 0.95);
   // hair: top cap (incl. bangs) + bob shell open at front
   const cap = mesh(new THREE.SphereGeometry(0.39, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.4), hairM, 0, HC + 0.01, 0, head);
   cap.scale.set(1.03, 1, 1.0);
@@ -310,7 +311,7 @@ function makeMayor() {
   [-1, 1].forEach(sd => { const tp = mesh(new THREE.BoxGeometry(0.014, 0.014, 0.3), gFrame, sd * 0.24, GY + 0.01, 0.23, head); tp.rotation.y = sd * 0.45; });
   smile.rotation.z = Math.PI;
   const blushM = new THREE.MeshBasicMaterial({ color: 0xff8f9a, transparent: true, opacity: 0.55, depthWrite: false });
-  [-0.22, 0.22].forEach(x => { const b = mesh(new THREE.CircleGeometry(0.05, 12), blushM, x, HC - 0.09, 0.285, head); b.rotation.y = x * 2.2; });
+  [-0.22, 0.22].forEach(x => { const b = mesh(new THREE.CircleGeometry(0.062, 14), blushM, x * 1.05, HC - 0.09, 0.29, head); b.rotation.y = x * 2.2; b.scale.set(1.15, 0.9, 1); });
   // pearl earrings
   [-1, 1].forEach(s => mesh(new THREE.SphereGeometry(0.025, 6, 4), lam(0xffffff), s * 0.35, HC - 0.13, 0.03, head));
   // blob shadow
@@ -452,10 +453,32 @@ function makeOverhead() {
   mesh(new THREE.BoxGeometry(2.25, 0.1, 0.1), lam(0xf5c242), 0, 1.45, 0, g);
   return g;
 }
+// 豬大腸 slip hazard: coiled pinkish-brown tube in a greasy puddle + floating label
+const intGeo = (() => {
+  const pts = [];
+  for (let i = 0; i <= 70; i++) { const a = i / 70 * Math.PI * 2 * 1.75, r = 0.1 + i / 70 * 0.36; pts.push(new THREE.Vector3(Math.cos(a) * r, 0.09 + Math.sin(i * 0.9) * 0.012, Math.sin(a) * r)); }
+  return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 90, 0.075, 8, false);
+})();
+const intM = lam(0xd98a78, { emissive: 0x3a1a12 }), intTipM = lam(0xb86a5a);
+const puddleM = new THREE.MeshLambertMaterial({ color: 0x9c7a2e, transparent: true, opacity: 0.55, depthWrite: false });
+const glossM = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false });
+const intLabelTex = textTexture(['豬大腸'], 192, 64, '#ffffff', '#b2452f', { size: 0.8, border: '#b2452f' });
+function makeIntestine() {
+  const g = new THREE.Group(), body = new THREE.Group(); body.scale.set(1.3, 1.5, 1.3); g.add(body);
+  const pd = mesh(new THREE.CircleGeometry(0.72, 20), puddleM, 0, 0.035, 0, body); pd.rotation.x = -Math.PI / 2; pd.scale.set(1.15, 0.9, 1);
+  const gl = mesh(new THREE.CircleGeometry(0.16, 12), glossM, -0.32, 0.04, 0.22, body); gl.rotation.x = -Math.PI / 2; gl.scale.set(1.8, 0.6, 1);
+  mesh(intGeo, intM, 0, 0, 0, body);
+  mesh(new THREE.SphereGeometry(0.085, 8, 6), intTipM, 0.46, 0.09, -0.02, body);
+  mesh(new THREE.SphereGeometry(0.08, 8, 6), intTipM, 0.1, 0.09, 0, body);
+  const lab = new THREE.Sprite(new THREE.SpriteMaterial({ map: intLabelTex, transparent: true, depthWrite: false }));
+  lab.scale.set(1.4, 0.47, 1); lab.position.y = 1.0; g.add(lab); g.userData.label = lab;
+  return g;
+}
 const OB_DEF = {
   cone: { make: makeCone, hx: 0.36, hz: 0.36, y0: 0, y1: 0.85, n: 10 },
   barrier: { make: makeBarrier, hx: 0.95, hz: 0.2, y0: 0, y1: 1.0, n: 8 },
   overhead: { make: makeOverhead, hx: 1.05, hz: 0.15, y0: 1.2, y1: 3, n: 8 },
+  intestine: { make: makeIntestine, hx: 0.6, hz: 0.55, y0: 0, y1: 0.35, n: 8 },
 };
 const pools = {};
 const active = [];
@@ -518,6 +541,7 @@ const sfx = {
   jump() { beep(330, 0.18, 'triangle', 0.1, 400); },
   slide() { beep(500, 0.2, 'sawtooth', 0.04, -350); },
   lane() { beep(660, 0.05, 'sine', 0.05); },
+  slip() { beep(900, 0.35, 'sine', 0.09, -700); setTimeout(() => beep(160, 0.4, 'square', 0.08, -60), 300); },
   crash() { beep(200, 0.5, 'sawtooth', 0.15, -160); beep(90, 0.6, 'square', 0.1, -40); },
   bell() { beep(1568, 0.22, 'sine', 0.07); setTimeout(() => beep(1568, 0.22, 'sine', 0.07), 260); setTimeout(() => beep(1568, 0.22, 'sine', 0.07), 520); },
 };
@@ -556,7 +580,9 @@ function clearWorld() {
 }
 function resetPlayer() {
   Object.assign(S, { speed: START_SPEED, dist: 0, coins: 0, bonus: 0, lane: 1, x: 0, y: 0, vy: 0, slide: 0, spawnAcc: 0, crashT: 0, time: 0 });
-  mayor.pose.rotation.set(0, 0, 0); mayor.pose.position.set(0, 0, 0);
+  mayor.pose.rotation.set(0, 0, 0); mayor.pose.position.set(0, 0, 0); S.crashKind = null; S.slipZ = 0;
+  mayor.root.rotation.set(0, S.mode === 'home' ? 0.35 : Math.PI, 0); mayor.root.position.z = 0;
+  mayor.arms[0].rotation.set(0, 0, -0.18); mayor.arms[1].rotation.set(0, 0, 0.18);
 }
 function startGame() {
   clearWorld(); resetPlayer();
@@ -582,14 +608,15 @@ function togglePause() {
 }
 function score() { return Math.floor(S.dist) + S.coins * 10 + S.bonus; }
 function updateHUD() { ui.score.textContent = score(); ui.dist.textContent = Math.floor(S.dist); ui.coins.textContent = S.coins; }
-function gameOver() {
-  S.mode = 'crash'; S.crashT = 0; sfx.crash(); ui.warn.classList.add('hidden');
+function gameOver(reason) {
+  S.mode = 'crash'; S.crashT = 0; S.crashKind = reason; S.slipZ = 0; if (reason === 'slip') sfx.slip(); else sfx.crash(); ui.warn.classList.add('hidden');
   if (navigator.vibrate) try { navigator.vibrate(120); } catch (e) { }
   setTimeout(() => {
     const sc = score(); const isBest = sc > best;
     if (isBest) { best = sc; localStorage.setItem(BEST_KEY, best); }
     $('oScore').textContent = sc; $('oDist').textContent = Math.floor(S.dist) + ' 公尺'; $('oCoins').textContent = S.coins; $('oBest').textContent = best;
     $('newBest').classList.toggle('hidden', !isBest);
+    $('overTitle').textContent = reason === 'slip' ? '踩到豬大腸滑倒了！' : '哎呀！撞到了';
     ui.over.classList.remove('hidden'); ui.hud.classList.add('hidden'); S.mode = 'over';
   }, 900);
 }
@@ -635,7 +662,7 @@ function generateRow(z) {
   const d = W - z;
   const free = [0, 1, 2].filter(l => laneClearOfTrack(l, d - 8, d + 8)).sort(() => Math.random() - 0.5);
   const nStat = Math.random() < 0.3 + lvl * 0.35 ? 2 : (Math.random() < 0.85 ? 1 : 0);
-  for (let n = 0; n < nStat && n < free.length; n++) spawnOb(pick(['cone', 'barrier', 'overhead', 'barrier', 'cone']), free[n], z);
+  for (let n = 0; n < nStat && n < free.length; n++) spawnOb(pick(['cone', 'barrier', 'overhead', 'barrier', 'intestine', 'intestine']), free[n], z);
   // coins on the asphalt, in a lane away from the track
   const cl = [0, 1, 2].filter(l => laneClearOfTrack(l, d - 9, d + 16));
   const l = cl.length ? pick(cl) : pick([0, 1, 2]);
@@ -649,7 +676,7 @@ function generateRow(z) {
       for (const o of active) {
         if (o.userData.lane !== l) continue;
         const k = o.userData.kind, dd = Math.abs(cz - o.position.z);
-        if ((k === 'barrier' || k === 'cone') && dd < 4) y = Math.max(y, 1.0 + 1.1 * Math.cos(dd / 4 * Math.PI / 2));
+        if ((k === 'barrier' || k === 'cone' || k === 'intestine') && dd < 4) y = Math.max(y, 1.0 + 1.1 * Math.cos(dd / 4 * Math.PI / 2));
         else if (k === 'overhead' && dd < 2.5) y = 0.55;
       }
       if (i === bowlAt) spawnBowl(LANES[l], y - 0.2, cz); else spawnCoin(LANES[l], y, cz);
@@ -686,8 +713,8 @@ function update(dt) {
   }
   // character animation
   const m = mayor;
-  m.root.position.set(S.x, S.y, 0);
-  m.shadow.position.set(S.x, 0.04, 0); m.shadow.scale.setScalar(Math.max(0.4, 1 - S.y * 0.25));
+  m.root.position.set(S.x, S.y, (S.mode === 'crash' || S.mode === 'over') && S.crashKind === 'slip' ? S.slipZ : 0);
+  m.shadow.position.set(S.x, 0.04, m.root.position.z); m.shadow.scale.setScalar(Math.max(0.4, 1 - S.y * 0.25));
   if (homeMode) {
     m.root.rotation.y += (0.35 - m.root.rotation.y) * Math.min(1, dt * 4);
     S.runT += dt * 3;
@@ -696,6 +723,15 @@ function update(dt) {
     m.arms[1].rotation.x = 0; m.arms[1].rotation.z = 2.6 + Math.sin(S.runT * 2.2) * 0.35; // waving
     m.arms[0].rotation.x = 0; m.arms[0].rotation.z = -0.18;
     m.head.rotation.z = Math.sin(S.runT) * 0.08;
+  } else if ((S.mode === 'crash' || S.mode === 'over') && S.crashKind === 'slip') {
+    // slipped on 豬大腸: spin, feet fly up, fall on her back and skid forward
+    const k = Math.min(1, dt * 7), sp = Math.max(0, 1 - S.crashT * 1.1);
+    m.root.rotation.y += dt * 16 * sp;
+    S.slipZ -= dt * 6 * sp; m.root.position.z = S.slipZ;
+    m.pose.rotation.x += (-1.35 - m.pose.rotation.x) * k; m.pose.position.y = 0.12;
+    m.legs[0].rotation.x += (-1.4 - m.legs[0].rotation.x) * k; m.legs[1].rotation.x += (-1.0 - m.legs[1].rotation.x) * k;
+    m.arms[0].rotation.z += (-2.2 - m.arms[0].rotation.z) * k; m.arms[1].rotation.z += (2.2 - m.arms[1].rotation.z) * k;
+    m.arms[0].rotation.x = m.arms[1].rotation.x = 0;
   } else if (S.mode === 'crash' || S.mode === 'over') {
     m.pose.rotation.x += (1.3 - m.pose.rotation.x) * Math.min(1, dt * 6);
   } else if (playing) {
@@ -730,11 +766,12 @@ function update(dt) {
     const o = active[i]; const d = o.userData;
     o.position.z += dz + d.vz * dt * (S.mode === 'play' || homeMode ? 1 : 0);
     if (d.blink) d.blink.visible = Math.sin(t * 10) > 0;
+    if (d.label) { d.label.material.opacity = THREE.MathUtils.clamp((o.position.z + 45) / 15, 0, 1); d.label.position.y = 1.0 + Math.sin(t * 4 + o.position.z) * 0.06; }
     if (o.position.z > DESPAWN_Z + OB_DEF[d.kind].hz) { o.visible = false; active.splice(i, 1); continue; }
     const def = OB_DEF[d.kind];
     if (!playing) continue;
-    if (Math.abs(o.position.x - S.x) < def.hx + 0.32 && Math.abs(o.position.z) < def.hz + 0.3) {
-      if (py1 > def.y0 + 0.02 && py0 < def.y1) { gameOver(); break; }
+    if (Math.abs(o.position.x - S.x) < def.hx + 0.36 && Math.abs(o.position.z) < def.hz + 0.32) {
+      if (py1 > def.y0 + 0.02 && py0 < def.y1) { gameOver(d.kind === 'intestine' ? 'slip' : 'hit'); break; }
     }
   }
   // trains
@@ -748,7 +785,7 @@ function update(dt) {
     if (W - tr.d - TRAIN_LEN > DESPAWN_Z + 3) { tr.on = false; tr.cars.forEach(c => c.visible = false); continue; }
     if (!playing) continue;
     // hit test along the curved track at her position (d = W)
-    if (W > tr.d - 0.3 && W < tr.d + TRAIN_LEN + 0.3 && Math.abs(trackX(W) - S.x) < 1.15 + 0.3) { gameOver(); break; }
+    if (W > tr.d - 0.3 && W < tr.d + TRAIN_LEN + 0.3 && Math.abs(trackX(W) - S.x) < 1.15 + 0.34) { gameOver('train'); break; }
     // warning: where will this train meet her, and is the track in her lane there?
     if (tr.d > W) {
       const tm = (tr.d - W) / (S.speed + tr.vz), dm = tr.d - tr.vz * tm;
