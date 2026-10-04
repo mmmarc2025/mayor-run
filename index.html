@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#2f6fc4">
+<title>美惠快跑！嘉義輕軌</title>
+<style>
+:root{--blue:#2f6fc4;--orange:#f39a1e;--green:#2e8b57}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{margin:0;height:100%;overflow:hidden;background:#9fd3f0;touch-action:none;
+ font-family:"Noto Sans TC","Noto Sans CJK TC","PingFang TC","Microsoft JhengHei","Heiti TC",sans-serif;color:#fff}
+#game{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;
+ padding:calc(10px + env(safe-area-inset-top)) 12px 0;pointer-events:none;z-index:5}
+.stats{display:flex;flex-direction:column;gap:6px}
+.pill{background:rgba(20,40,80,.55);border-radius:999px;padding:5px 14px;font-weight:800;font-size:clamp(14px,3.8vw,20px);
+ text-shadow:0 1px 2px rgba(0,0,0,.4);backdrop-filter:blur(2px);white-space:nowrap}
+.pill b{color:#ffd54a}
+.btns{display:flex;gap:8px;pointer-events:auto}
+.icon{width:44px;height:44px;border-radius:50%;border:2px solid rgba(255,255,255,.85);background:rgba(20,40,80,.55);
+ color:#fff;font-size:18px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:inherit}
+.icon.off{opacity:.5;text-decoration:line-through}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;
+ text-align:center;padding:20px;background:linear-gradient(180deg,rgba(20,50,110,.15),rgba(20,50,110,.55))}
+.hidden{display:none!important}
+.title{font-size:clamp(34px,9vw,64px);font-weight:900;margin:0;letter-spacing:2px;line-height:1.1;
+ text-shadow:0 4px 0 #1d4b8f,0 6px 14px rgba(0,0,0,.35)}
+.title small{display:block;font-size:.45em;color:#ffd54a;letter-spacing:6px;text-shadow:0 3px 0 #a3570a}
+.name{margin-top:10px;display:inline-block;background:#fff;color:var(--blue);font-weight:900;font-size:clamp(20px,5.5vw,30px);
+ padding:4px 22px;border-radius:12px;border:3px solid var(--blue);box-shadow:0 4px 0 #1d4b8f}
+.spacer{flex:1;min-height:40px;max-height:42vh}
+.big{font-family:inherit;font-size:clamp(20px,5.5vw,28px);font-weight:900;color:#fff;background:linear-gradient(#ffb547,#f08a0c);
+ border:none;border-radius:999px;padding:14px 46px;box-shadow:0 6px 0 #a3570a,0 10px 20px rgba(0,0,0,.25);cursor:pointer;margin-top:12px}
+.big:active{transform:translateY(4px);box-shadow:0 2px 0 #a3570a}
+.big.sec{background:linear-gradient(#5b9bea,#2f6fc4);box-shadow:0 6px 0 #1d4b8f}
+.help{margin-top:14px;font-size:clamp(12px,3.4vw,15px);line-height:1.7;background:rgba(0,0,0,.3);padding:8px 16px;border-radius:12px}
+.best{margin-top:8px;font-weight:800;color:#ffd54a;text-shadow:0 2px 3px rgba(0,0,0,.4)}
+.card{background:rgba(255,255,255,.95);color:#23324d;border-radius:20px;padding:22px 26px;min-width:260px;max-width:92vw;
+ box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.card h2{margin:0 0 6px;font-size:clamp(26px,7vw,36px);color:#d9480f}
+.card .row{display:flex;justify-content:space-between;gap:30px;font-size:18px;font-weight:700;padding:5px 0;border-bottom:1px dashed #ccd}
+.card .row span:last-child{color:var(--blue)}
+.newbest{color:#e8590c;font-weight:900;margin-top:8px;animation:pop .6s ease infinite alternate}
+@keyframes pop{from{transform:scale(1)}to{transform:scale(1.12)}}
+#warn{position:fixed;top:28%;left:50%;transform:translateX(-50%);background:rgba(220,40,30,.85);padding:8px 18px;border-radius:12px;
+ font-weight:900;font-size:clamp(16px,4.5vw,24px);z-index:6;pointer-events:none;animation:blink .35s steps(2) infinite}
+@keyframes blink{50%{opacity:.35}}
+.popup{position:fixed;font-weight:900;font-size:22px;color:#ffd54a;text-shadow:0 2px 0 #a3570a,0 0 6px rgba(0,0,0,.5);
+ pointer-events:none;z-index:7;transition:transform .9s ease-out,opacity .9s ease-out;white-space:nowrap}
+.foot{position:fixed;bottom:calc(6px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;font-size:11px;opacity:.8;z-index:11;
+ text-shadow:0 1px 2px rgba(0,0,0,.6);pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div class="hud hidden" id="hud">
+  <div class="stats">
+    <div class="pill">分數 <b id="score">0</b></div>
+    <div class="pill">距離 <b id="dist">0</b> 公尺</div>
+    <div class="pill">金幣 <b id="coins">0</b></div>
+  </div>
+  <div class="btns">
+    <button class="icon" id="muteBtn" aria-label="音效開關">♪</button>
+    <button class="icon" id="pauseBtn" aria-label="暫停">❚❚</button>
+  </div>
+</div>
+<div id="warn" class="hidden">⚠ 輕軌切入車道！</div>
+
+<div class="screen" id="startScreen">
+  <h1 class="title"><small>嘉義輕軌</small>美惠快跑！</h1>
+  <div class="name">王美惠</div>
+  <div class="spacer"></div>
+  <button class="big" id="startBtn">開始奔跑</button>
+  <div class="best" id="bestStart">最高分：0</div>
+  <div class="help">← → 換車道　↑／空白鍵 跳躍　↓ 滑行　P 暫停<br>手機：左右滑換道、上滑跳、下滑滑行<br>閃過輕軌與路障，收集金幣和雞肉飯！</div>
+</div>
+
+<div class="screen hidden" id="pauseScreen">
+  <div class="card">
+    <h2 style="color:#2f6fc4">暫停中</h2>
+    <div>喘口氣，喝杯木瓜牛奶 🥤</div>
+    <button class="big" id="resumeBtn">繼續</button><br>
+    <button class="big sec" id="homeBtn">回主畫面</button>
+  </div>
+</div>
+
+<div class="screen hidden" id="overScreen">
+  <div class="card">
+    <h2>哎呀！撞到了</h2>
+    <div class="row"><span>分數</span><span id="oScore">0</span></div>
+    <div class="row"><span>距離</span><span id="oDist">0 公尺</span></div>
+    <div class="row"><span>金幣</span><span id="oCoins">0</span></div>
+    <div class="row"><span>最高分</span><span id="oBest">0</span></div>
+    <div class="newbest hidden" id="newBest">🎉 新紀錄！</div>
+    <button class="big" id="restartBtn">再跑一次</button><br>
+    <button class="big sec" id="home2Btn">回主畫面</button>
+  </div>
+</div>
+<div class="foot" id="foot">非官方趣味小遊戲・角色為 Q 版創作造型</div>
+
+<script src="game.js"></script>
+</body>
+</html>
