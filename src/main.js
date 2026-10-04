@@ -4,7 +4,10 @@ import * as THREE from '../vendor/three.module.min.js';
 const LANES = [-2.5, 0, 2.5];
 const SPAWN_Z = -125;
 const DESPAWN_Z = 14;
-const START_SPEED = 13, MAX_SPEED = 34, ACCEL = 0.22;
+const START_SPEED = 11, MAX_SPEED = 28, RAMP_DIST = 2500;
+// difficulty 0..1: flat for the first ~300 m, then rises gently until ~2500 m
+const diffLvl = (d) => { const p = Math.min(1, Math.max(0, (d - 300) / (RAMP_DIST - 300))); return p * p * (3 - 2 * p); };
+const speedAt = (d) => { const p = Math.min(1, d / RAMP_DIST); return START_SPEED + (MAX_SPEED - START_SPEED) * p * p * (3 - 2 * p); };
 const GRAVITY = -34, JUMP_V = 11.5, SLIDE_TIME = 0.75;
 const FONT = '"Noto Sans TC","Noto Sans CJK TC","PingFang TC","Microsoft JhengHei",sans-serif';
 const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && innerWidth < 900);
@@ -591,7 +594,7 @@ function startGame() {
   ui.hud.classList.remove('hidden');
   trimTrack(W + 55); extendTrack(W + 170);
   for (let i = 0; i < 8; i++) spawnCoin(LANES[1], 1.0, -16 - i * 2.4);
-  S.spawnAcc = 0; S.nextGap = 30; S.trainAcc = 0; S.trainGap = 25;
+  S.spawnAcc = 0; S.nextGap = 34; S.trainAcc = 0; S.trainGap = 70;
   // seed a couple of rows inside visible range
   generateRow(-60); generateRow(-90);
   updateHUD();
@@ -658,10 +661,10 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && S.m
 // ---------- spawning ----------
 function laneClearOfTrack(l, d0, d1) { for (let d = d0; d <= d1; d += 2) if (Math.abs(LANES[l] - trackX(d)) < 1.75) return false; return true; }
 function generateRow(z) {
-  const lvl = Math.min(1, S.dist / 1500);
+  const lvl = diffLvl(S.dist);
   const d = W - z;
   const free = [0, 1, 2].filter(l => laneClearOfTrack(l, d - 8, d + 8)).sort(() => Math.random() - 0.5);
-  const nStat = Math.random() < 0.3 + lvl * 0.35 ? 2 : (Math.random() < 0.85 ? 1 : 0);
+  const nStat = Math.random() < 0.12 + lvl * 0.43 ? 2 : (Math.random() < 0.7 + lvl * 0.2 ? 1 : 0);
   for (let n = 0; n < nStat && n < free.length; n++) spawnOb(pick(['cone', 'barrier', 'overhead', 'barrier', 'intestine', 'intestine']), free[n], z);
   // coins on the asphalt, in a lane away from the track
   const cl = [0, 1, 2].filter(l => laneClearOfTrack(l, d - 9, d + 16));
@@ -683,7 +686,7 @@ function generateRow(z) {
     }
   }
 }
-const trainVz = () => 5 + Math.min(1, S.dist / 1500) * 7;
+const trainVz = () => 4 + diffLvl(S.dist) * 6;
 
 // ---------- update ----------
 const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), tmpV = new THREE.Vector3(), tmpS = new THREE.Vector3(1, 1, 1);
@@ -693,7 +696,7 @@ function update(dt) {
   const playing = S.mode === 'play';
   const homeMode = S.mode === 'home';
   const speed = playing ? S.speed : homeMode ? 6 : (S.mode === 'crash' ? Math.max(0, S.speed * (1 - S.crashT * 3)) : 0);
-  if (playing) S.speed = Math.min(MAX_SPEED, S.speed + ACCEL * dt * (S.speed < 22 ? 1 : 0.6));
+  if (playing) S.speed = speedAt(S.dist);
   if (S.mode === 'crash') S.crashT += dt;
   const dz = speed * dt;
   if (playing) S.dist += dz;
@@ -798,12 +801,12 @@ function update(dt) {
   // spawn
   if (playing) {
     S.spawnAcc += dz;
-    const gap = Math.max(15, 30 - S.speed * 0.45) + rand(-2, 4) * 0;
+    const gap = 34 - diffLvl(S.dist) * 16;
     if (S.spawnAcc >= S.nextGap) { S.spawnAcc = 0; S.nextGap = gap + rand(0, 6); generateRow(SPAWN_Z); }
     S.trainAcc += dz;
     if (S.trainAcc >= S.trainGap && spawnTrain(W + 145, trainVz())) {
-      const lvl = Math.min(1, S.dist / 1500);
-      S.trainAcc = 0; S.trainGap = rand(40, 75) - lvl * 15;
+      const lvl = diffLvl(S.dist);
+      S.trainAcc = 0; S.trainGap = rand(60, 95) - lvl * 30;
     }
   } else if (homeMode) {
     S.homeT = (S.homeT || 0) - dt;
