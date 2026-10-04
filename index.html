@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#2f6fc4">
-<title>美惠快跑！嘉義輕軌</title>
+<title>美惠快跑！嘉義聯外軌道</title>
 <style>
 :root{--blue:#2f6fc4;--orange:#f39a1e;--green:#2e8b57}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
@@ -29,6 +29,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:#9fd3f0;touch-action:n
 .title small{display:block;font-size:.45em;color:#ffd54a;letter-spacing:6px;text-shadow:0 3px 0 #a3570a}
 .name{margin-top:10px;display:inline-block;background:#fff;color:var(--blue);font-weight:900;font-size:clamp(20px,5.5vw,30px);
  padding:4px 22px;border-radius:12px;border:3px solid var(--blue);box-shadow:0 4px 0 #1d4b8f}
+.bubble{position:relative;margin-top:12px;background:#fff;color:#23324d;font-weight:900;font-size:clamp(14px,4vw,20px);
+ line-height:1.35;padding:8px 16px;border-radius:16px;border:3px solid #23324d;max-width:min(92vw,560px);box-shadow:0 4px 0 rgba(0,0,0,.2)}
+.bubble::after{content:"";position:absolute;left:50%;bottom:-13px;transform:translateX(-50%);border:10px solid transparent;border-top:12px solid #23324d;border-bottom:0}
+.bubble::before{content:"";position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);border:8px solid transparent;border-top:9px solid #fff;border-bottom:0;z-index:1}
 .spacer{flex:1;min-height:40px;max-height:42vh}
 .big{font-family:inherit;font-size:clamp(20px,5.5vw,28px);font-weight:900;color:#fff;background:linear-gradient(#ffb547,#f08a0c);
  border:none;border-radius:999px;padding:14px 46px;box-shadow:0 6px 0 #a3570a,0 10px 20px rgba(0,0,0,.25);cursor:pointer;margin-top:12px}
@@ -43,7 +47,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#9fd3f0;touch-action:n
 .card .row span:last-child{color:var(--blue)}
 .newbest{color:#e8590c;font-weight:900;margin-top:8px;animation:pop .6s ease infinite alternate}
 @keyframes pop{from{transform:scale(1)}to{transform:scale(1.12)}}
-#warn{position:fixed;top:28%;left:50%;transform:translateX(-50%);background:rgba(220,40,30,.85);padding:8px 18px;border-radius:12px;
+#warn{position:fixed;white-space:nowrap;top:28%;left:50%;transform:translateX(-50%);background:rgba(220,40,30,.85);padding:8px 18px;border-radius:12px;
  font-weight:900;font-size:clamp(16px,4.5vw,24px);z-index:6;pointer-events:none;animation:blink .35s steps(2) infinite}
 @keyframes blink{50%{opacity:.35}}
 .popup{position:fixed;font-weight:900;font-size:22px;color:#ffd54a;text-shadow:0 2px 0 #a3570a,0 0 6px rgba(0,0,0,.5);
@@ -66,15 +70,16 @@ html,body{margin:0;height:100%;overflow:hidden;background:#9fd3f0;touch-action:n
     <button class="icon" id="pauseBtn" aria-label="暫停">❚❚</button>
   </div>
 </div>
-<div id="warn" class="hidden">⚠ 輕軌切入車道！</div>
+<div id="warn" class="hidden">⚠ 聯外軌道切入車道！</div>
 
 <div class="screen" id="startScreen">
-  <h1 class="title"><small>嘉義輕軌</small>美惠快跑！</h1>
+  <h1 class="title"><small>嘉義聯外軌道</small>美惠快跑！</h1>
+  <div class="bubble">我哪有說過要蓋聯外軌道，不要亂說！</div>
   <div class="name">王美惠</div>
   <div class="spacer"></div>
   <button class="big" id="startBtn">開始奔跑</button>
   <div class="best" id="bestStart">最高分：0</div>
-  <div class="help">← → 換車道　↑／空白鍵 跳躍　↓ 滑行　P 暫停<br>手機：左右滑換道、上滑跳、下滑滑行<br>閃過輕軌與路障，收集金幣和雞肉飯！</div>
+  <div class="help">← → 換車道　↑／空白鍵 跳躍　↓ 滑行　P 暫停<br>手機：左右滑換道、上滑跳、下滑滑行<br>閃過聯外軌道與路障，收集金幣和雞肉飯！</div>
 </div>
 
 <div class="screen hidden" id="pauseScreen">

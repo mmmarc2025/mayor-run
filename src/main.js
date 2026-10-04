@@ -201,7 +201,7 @@ for (let i = 0; i < 2; i++) {
   mesh(new THREE.BoxGeometry(2.8, 0.18, 13), roofM, 0.1, 3.3, 0, g);
   [-5, 0, 5].forEach(z => mesh(new THREE.BoxGeometry(0.15, 3, 0.15), lam(0xdddddd), -0.7, 1.8, z, g));
   mesh(new THREE.BoxGeometry(0.06, 1.6, 10), new THREE.MeshLambertMaterial({ color: 0xbfe3ff, transparent: true, opacity: 0.45 }), -0.95, 1.2, 0, g);
-  const tex = textTexture(['嘉義輕軌', STATION_NAMES[0]], 512, 160, '#2f6fc4', '#ffffff', { size: 0.7, border: '#f39a1e' });
+  const tex = textTexture(['嘉義聯外軌道', STATION_NAMES[0]], 512, 160, '#2f6fc4', '#ffffff', { size: 0.7, border: '#f39a1e' });
   const sign = mesh(new THREE.BoxGeometry(0.12, 1.0, 3.2), [new THREE.MeshLambertMaterial({ map: tex }), new THREE.MeshLambertMaterial({ map: tex }), roofM, roofM, roofM, roofM], 0.1, 3.95, 0, g);
   tex.center.set(0.5, 0.5);
   g.userData = { z: -60 - i * 150, tex };
@@ -211,7 +211,7 @@ for (let i = 0; i < 2; i++) {
 }
 function nameStation(g) {
   const n = STATION_NAMES[stationIdx++ % STATION_NAMES.length];
-  g.userData.tex.userData.draw(['嘉義輕軌', n + '站']);
+  g.userData.tex.userData.draw(['嘉義聯外軌道', n + '站']);
 }
 
 function updateScenery(dz) {
@@ -332,8 +332,8 @@ function makeTram() {
   mesh(new THREE.BoxGeometry(2.32, 0.12, 1.22), orange, 0, 0.7, 6.3, g);
   const hlM = lam(0xffffcc, { emissive: 0xfff3a0 });
   [-0.75, 0.75].forEach(x => mesh(new THREE.BoxGeometry(0.35, 0.18, 0.06), hlM, x, 0.95, 6.92, g));
-  const dest = textTexture(['嘉義輕軌'], 256, 48, '#111', '#ffb020', { size: 0.8 });
-  mesh(new THREE.PlaneGeometry(1.5, 0.28), new THREE.MeshBasicMaterial({ map: dest }), 0, 2.78, 6.91, g);
+  const dest = textTexture(['嘉義聯外軌道'], 384, 64, '#111', '#ffb020', { size: 0.8 });
+  mesh(new THREE.PlaneGeometry(2.1, 0.35), new THREE.MeshBasicMaterial({ map: dest }), 0, 2.8, 6.91, g);
   mesh(new THREE.BoxGeometry(1.2, 0.2, 3), dark, 0, 3.08, 0, g);
   const panto = mesh(new THREE.BoxGeometry(0.06, 1.2, 0.06), dark, 0, 3.7, 0, g); panto.rotation.x = 0.6;
   mesh(new THREE.BoxGeometry(1.4, 0.06, 0.1), dark, 0, 4.2, -0.35, g);
@@ -366,7 +366,7 @@ function makeBarrier() {
   g.userData.blink = l;
   return g;
 }
-const overTex = textTexture(['輕軌路口　請注意'], 512, 96, '#1e8a5a', '#ffffff', { size: 0.62, border: '#ffffff' });
+const overTex = textTexture(['聯外軌道路口', '請注意'], 512, 160, '#1e8a5a', '#ffffff', { size: 0.72, border: '#ffffff' });
 function makeOverhead() {
   const g = new THREE.Group();
   const post = lam(0x8a939c);
