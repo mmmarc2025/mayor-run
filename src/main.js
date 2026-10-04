@@ -291,6 +291,23 @@ function makeMayor() {
     const br = mesh(new THREE.BoxGeometry(0.075, 0.011, 0.01), lam(0x6b4030), x, HC + 0.085, 0.335, head); br.rotation.z = x < 0 ? -0.12 : 0.12;
   });
   const smile = mesh(new THREE.TorusGeometry(0.065, 0.016, 6, 14, Math.PI), lam(0xc0392b), 0, HC - 0.12, 0.315, head);
+  // 破洞眼鏡: round frames, the left lens has a missing chunk + cracks
+  const gFrame = lam(0x2b1d16), gLensM = new THREE.MeshBasicMaterial({ color: 0x9fd6ff, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide });
+  const GZ = 0.372, GY = HC - 0.015, GR = 0.082;
+  [-0.125, 0.125].forEach((x, i) => {
+    mesh(new THREE.TorusGeometry(GR, 0.014, 6, 24), gFrame, x, GY, GZ, head);
+    if (i === 0) mesh(new THREE.CircleGeometry(GR - 0.004, 24), gLensM, x, GY, GZ, head);
+    else {
+      // lens with a hole: missing wedge, jagged edge, crack lines
+      mesh(new THREE.CircleGeometry(GR - 0.004, 24, 2.0, Math.PI * 2 - 2.0), gLensM, x, GY, GZ, head);
+      const crackM = lam(0x333333);
+      [[0.3, 0.07], [1.2, 0.06], [-0.6, 0.065], [2.9, 0.05]].forEach(([a, len]) => {
+        const c = mesh(new THREE.BoxGeometry(len, 0.006, 0.004), crackM, x + Math.cos(a) * len / 2 - 0.01, GY + Math.sin(a) * len / 2 - 0.005, GZ + 0.004, head); c.rotation.z = a;
+      });
+    }
+  });
+  mesh(new THREE.BoxGeometry(0.08, 0.014, 0.014), gFrame, 0, GY + 0.02, GZ, head);
+  [-1, 1].forEach(sd => { const tp = mesh(new THREE.BoxGeometry(0.014, 0.014, 0.3), gFrame, sd * 0.24, GY + 0.01, 0.23, head); tp.rotation.y = sd * 0.45; });
   smile.rotation.z = Math.PI;
   const blushM = new THREE.MeshBasicMaterial({ color: 0xff8f9a, transparent: true, opacity: 0.55, depthWrite: false });
   [-0.22, 0.22].forEach(x => { const b = mesh(new THREE.CircleGeometry(0.05, 12), blushM, x, HC - 0.09, 0.285, head); b.rotation.y = x * 2.2; });
@@ -311,6 +328,49 @@ const TRAIN_LEN = FRONT_EXT + N_CARS * CAR_LEN + (N_CARS - 1) * CAR_GAP;
 const trWhite = lam(0xf7f7f2), trGreen = lam(0x1e8a5a), trOrange = lam(0xf39a1e), trDark = lam(0x333a40);
 const trGlass = lam(0x1d2a38, { emissive: 0x0a1018 }), trHl = lam(0xffffcc, { emissive: 0xfff3a0 });
 const trDest = textTexture(['嘉義聯外軌道'], 384, 64, '#111', '#ffb020', { size: 0.8 });
+// chibi 張啓楷 waving from the driver cab (stylised, not a likeness)
+const cabGlass = new THREE.MeshBasicMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.18, depthWrite: false });
+const zhangTag = textTexture(['張啓楷'], 192, 60, '#ffffff', '#1e5fb4', { size: 0.85, border: '#1e5fb4' });
+const ZG = {
+  torso: new THREE.CylinderGeometry(0.17, 0.22, 0.45, 12),
+  vest: new THREE.CylinderGeometry(0.185, 0.235, 0.43, 12, 1, false, 0.55, Math.PI * 2 - 1.1),
+  head: new THREE.SphereGeometry(0.29, 16, 12),
+  hair: new THREE.SphereGeometry(0.305, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.36),
+  swoop: new THREE.BoxGeometry(0.34, 0.07, 0.2),
+  arm: new THREE.CylinderGeometry(0.055, 0.065, 0.3, 8).translate(0, -0.15, 0),
+  hand: new THREE.SphereGeometry(0.06, 8, 6),
+  frame: new THREE.BoxGeometry(0.15, 0.1, 0.012),
+  lens: new THREE.BoxGeometry(0.115, 0.068, 0.012),
+  bridge: new THREE.BoxGeometry(0.06, 0.018, 0.012),
+  eye: new THREE.SphereGeometry(0.022, 6, 5),
+  smile: new THREE.TorusGeometry(0.06, 0.014, 6, 12, Math.PI),
+  collar: new THREE.BoxGeometry(0.12, 0.2, 0.02),
+};
+const ZM = { skin: lam(0xf3cba5), shirt: lam(0xfdfdfd), vest: new THREE.MeshLambertMaterial({ color: 0x1b1b1f, side: THREE.DoubleSide }), hair: lam(0x111111),
+  frame: lam(0x111111), lens: lam(0xeaf6ff, { emissive: 0x556066 }), eye: lam(0x111111), smile: lam(0xb03a2e) };
+function makeZhang() {
+  const g = new THREE.Group();
+  mesh(ZG.torso, ZM.shirt, 0, 0.22, 0, g);
+  mesh(ZG.vest, ZM.vest, 0, 0.21, 0, g);
+  mesh(ZG.collar, ZM.shirt, 0, 0.33, 0.2, g);
+  const HC = 0.72;
+  mesh(ZG.head, ZM.skin, 0, HC, 0, g).scale.set(1, 0.95, 0.95);
+  mesh(ZG.hair, ZM.hair, 0, HC + 0.02, -0.01, g);
+  const sw = mesh(ZG.swoop, ZM.hair, 0.07, HC + 0.21, 0.19, g); sw.rotation.z = -0.25; sw.rotation.x = -0.5; // side part
+  [-0.105, 0.105].forEach(x => {
+    mesh(ZG.frame, ZM.frame, x, HC + 0.01, 0.285, g);
+    mesh(ZG.lens, ZM.lens, x, HC + 0.01, 0.29, g);
+    mesh(ZG.eye, ZM.eye, x, HC + 0.005, 0.297, g).scale.set(1, 1, 0.3);
+  });
+  mesh(ZG.bridge, ZM.frame, 0, HC + 0.03, 0.287, g);
+  const sm = mesh(ZG.smile, ZM.smile, 0, HC - 0.1, 0.27, g); sm.rotation.z = Math.PI;
+  const armR = new THREE.Group(); armR.position.set(0.21, 0.4, 0); g.add(armR);
+  mesh(ZG.arm, ZM.shirt, 0, 0, 0, armR); mesh(ZG.hand, ZM.skin, 0, -0.32, 0, armR);
+  const armL = new THREE.Group(); armL.position.set(-0.21, 0.4, 0); g.add(armL);
+  mesh(ZG.arm, ZM.shirt, 0, 0, 0, armL); mesh(ZG.hand, ZM.skin, 0, -0.32, 0, armL); armL.rotation.z = -0.25;
+  g.userData.arm = armR;
+  return g;
+}
 function makeTrainCar(front, panto) {
   const g = new THREE.Group();
   mesh(new THREE.BoxGeometry(2.3, 2.6, CAR_LEN), trWhite, 0, 1.75, 0, g);
@@ -319,13 +379,19 @@ function makeTrainCar(front, panto) {
   mesh(new THREE.BoxGeometry(2.36, 0.9, CAR_LEN - 0.9), trGlass, 0, 2.1, 0, g);
   mesh(new THREE.BoxGeometry(2.0, 0.32, CAR_LEN - 0.4), trDark, 0, 0.26, 0, g);
   if (front) {
-    const zf = CAR_LEN / 2;
-    mesh(new THREE.BoxGeometry(2.3, 2.3, FRONT_EXT), trWhite, 0, 1.6, zf + FRONT_EXT / 2, g);
-    mesh(new THREE.BoxGeometry(2.32, 0.42, FRONT_EXT + 0.02), trGreen, 0, 0.62, zf + FRONT_EXT / 2, g);
-    mesh(new THREE.BoxGeometry(2.32, 0.12, FRONT_EXT + 0.02), trOrange, 0, 0.9, zf + FRONT_EXT / 2, g);
-    const ws = mesh(new THREE.BoxGeometry(2.0, 1.15, 0.08), trGlass, 0, 2.1, zf + FRONT_EXT + 0.01, g); ws.rotation.x = -0.15;
-    [-0.75, 0.75].forEach(x => mesh(new THREE.BoxGeometry(0.38, 0.2, 0.06), trHl, x, 1.15, zf + FRONT_EXT + 0.02, g));
-    mesh(new THREE.PlaneGeometry(2.1, 0.35), new THREE.MeshBasicMaterial({ map: trDest }), 0, 2.92, zf + 0.02, g);
+    const zf = CAR_LEN / 2, zc = zf + FRONT_EXT / 2, zF = zf + FRONT_EXT;
+    // open driver cab: dashboard below, pillars + roof, see-through windshield
+    mesh(new THREE.BoxGeometry(2.3, 1.05, FRONT_EXT), trWhite, 0, 0.975, zc, g);
+    mesh(new THREE.BoxGeometry(2.3, 0.3, FRONT_EXT), trWhite, 0, 2.9, zc, g);
+    [-1.075, 1.075].forEach(x => mesh(new THREE.BoxGeometry(0.15, 1.25, FRONT_EXT), trWhite, x, 2.125, zc, g));
+    mesh(new THREE.PlaneGeometry(2.0, 1.25), lam(0x55606b), 0, 2.125, zf + 0.02, g); // cab back wall
+    mesh(new THREE.BoxGeometry(2.32, 0.42, FRONT_EXT + 0.02), trGreen, 0, 0.62, zc, g);
+    mesh(new THREE.BoxGeometry(2.32, 0.12, FRONT_EXT + 0.02), trOrange, 0, 0.9, zc, g);
+    mesh(new THREE.PlaneGeometry(2.0, 1.25), cabGlass, 0, 2.125, zF - 0.02, g);
+    [-0.8, 0.8].forEach(x => mesh(new THREE.BoxGeometry(0.36, 0.2, 0.06), trHl, x, 1.15, zF + 0.02, g));
+    mesh(new THREE.PlaneGeometry(2.0, 0.26), new THREE.MeshBasicMaterial({ map: trDest }), 0, 2.9, zF + 0.01, g);
+    mesh(new THREE.PlaneGeometry(1.1, 0.34), new THREE.MeshBasicMaterial({ map: zhangTag }), 0, 1.22, zF + 0.01, g);
+    const zh = makeZhang(); zh.position.set(0, 1.28, zf + 0.4); zh.scale.setScalar(1.25); g.add(zh); g.userData.zhang = zh;
   }
   if (panto) {
     mesh(new THREE.BoxGeometry(1.2, 0.2, 2.6), trDark, 0, 3.15, 0, g);
@@ -336,7 +402,7 @@ function makeTrainCar(front, panto) {
   return g;
 }
 const trains = [];
-for (let i = 0; i < 4; i++) trains.push({ cars: [makeTrainCar(true, false), makeTrainCar(false, true), makeTrainCar(false, false)], on: false, d: 0, vz: 0 });
+for (let i = 0; i < 4; i++) { const cars = [makeTrainCar(true, false), makeTrainCar(false, true), makeTrainCar(false, false)]; trains.push({ cars, zhang: cars[0].userData.zhang, on: false, d: 0, vz: 0, ph: Math.random() * 6 }); }
 function spawnTrain(d, vz) {
   if (trains.some(t => t.on && Math.abs(t.d - d) < TRAIN_LEN + 25)) return null;
   const t = trains.find(t => !t.on); if (!t) return null;
@@ -677,6 +743,8 @@ function update(dt) {
     if (!tr.on) continue;
     if (trainsMove) tr.d -= tr.vz * dt;
     placeTrain(tr);
+    tr.zhang.userData.arm.rotation.z = 2.7 + Math.sin(t * 9 + tr.ph) * 0.35;
+    tr.zhang.rotation.y = Math.sin(t * 2 + tr.ph) * 0.15;
     if (W - tr.d - TRAIN_LEN > DESPAWN_Z + 3) { tr.on = false; tr.cars.forEach(c => c.visible = false); continue; }
     if (!playing) continue;
     // hit test along the curved track at her position (d = W)
